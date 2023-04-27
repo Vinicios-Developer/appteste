@@ -1,9 +1,11 @@
+import asyncio
 from kivy.lang import Builder
 from plyer import gps
 from kivy.app import App
 from kivy.properties import StringProperty
 from kivy.clock import mainthread
 from kivy.utils import platform
+from client import Client
 
 kv = '''
 BoxLayout:
@@ -34,22 +36,11 @@ class GpsTest(App):
     gps_status = StringProperty('Click Start to get GPS location updates')
 
     def request_android_permissions(self):
-        """
-        Since API 23, Android requires permission to be requested at runtime.
-        This function requests permission and handles the response via a
-        callback.
-
-        The request will produce a popup if permissions have not already been
-        been granted, otherwise it will do nothing.
-        """
+        
         from android.permissions import request_permissions, Permission
 
         def callback(permissions, results):
-            """
-            Defines the callback to be fired when runtime permission
-            has been granted or denied. This is not strictly required,
-            but added for the sake of completeness.
-            """
+            
             if all([res for res in results]):
                 print("callback. All permissions granted.")
             else:
@@ -57,9 +48,6 @@ class GpsTest(App):
 
         request_permissions([Permission.ACCESS_COARSE_LOCATION,
                              Permission.ACCESS_FINE_LOCATION], callback)
-        # # To request permissions without a callback, do:
-        # request_permissions([Permission.ACCESS_COARSE_LOCATION,
-        #                      Permission.ACCESS_FINE_LOCATION])
 
     def build(self):
         try:
@@ -74,10 +62,12 @@ class GpsTest(App):
             print("gps.py: Android detected. Requesting permissions")
             self.request_android_permissions()
 
+        self.client = Client(self)  # Instancia o cliente passando a própria classe GpsTest como parâmetro
         return Builder.load_string(kv)
 
     def start(self, minTime, minDistance):
         gps.start(minTime, minDistance)
+        asyncio.ensure_future(self.client.run())  # Inicia o client em uma thread separada
 
     def stop(self):
         gps.stop()
@@ -98,7 +88,6 @@ class GpsTest(App):
     def on_resume(self):
         gps.start(1000, 0)
         pass
-
 
 if __name__ == '__main__':
     GpsTest().run()
